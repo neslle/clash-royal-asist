@@ -13,8 +13,13 @@ jobs:
       - name: Unzip project
         run: |
           unzip -o *.zip
-          # Если файлы распаковались в подпапку CRAssistant, перемещаем их в корень
-          if [ -d "CRAssistant" ]; then mv CRAssistant/* . 2>/dev/null || true; fi
+          # Ищем, где лежит gradlew, и перемещаем всё содержимое этой папки в корень
+          GRADLE_DIR=$(find . -name gradlew -exec dirname {} \;)
+          if [ "$GRADLE_DIR" != "." ] && [ ! -z "$GRADLE_DIR" ]; then
+            echo "Проект найден в папке: $GRADLE_DIR"
+            mv $GRADLE_DIR/* . 2>/dev/null || true
+            mv $GRADLE_DIR/.* . 2>/dev/null || true
+          fi
       - name: Make gradlew executable
         run: chmod +x gradlew
       - name: Build with Gradle
