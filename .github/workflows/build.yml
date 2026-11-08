@@ -11,22 +11,19 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
       - name: Unzip project
+        run: unzip -o *.zip
+      - name: Build App
         run: |
-          unzip -o *.zip
-          # Ищем, где лежит gradlew, и перемещаем всё содержимое этой папки в корень
-          GRADLE_DIR=$(find . -name gradlew -exec dirname {} \;)
-          if [ "$GRADLE_DIR" != "." ] && [ ! -z "$GRADLE_DIR" ]; then
-            echo "Проект найден в папке: $GRADLE_DIR"
-            mv $GRADLE_DIR/* . 2>/dev/null || true
-            mv $GRADLE_DIR/.* . 2>/dev/null || true
-          fi
-      - name: Make gradlew executable
-        run: chmod +x gradlew
-      - name: Build with Gradle
-        run: ./gradlew assembleDebug
+          # Ищем папку, в которой реально лежит gradlew после распаковки
+          GRADLE_PATH=$(find . -name gradlew)
+          GRADLE_DIR=$(dirname "$GRADLE_PATH")
+          echo "Проект обнаружен в директории: $GRADLE_DIR"
+          cd "$GRADLE_DIR"
+          chmod +x gradlew
+          ./gradlew assembleDebug
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: app-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: "**/build/outputs/apk/debug/*.apk"
           
