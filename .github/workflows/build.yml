@@ -11,11 +11,18 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
       - name: Unzip project
-        run: unzip -o *.zip
+        run: |
+          unzip -o *.zip
+          echo "=== СПИСОК РАСПАКОВАННЫХ ФАЙЛОВ ==="
+          ls -la
       - name: Build App
         run: |
-          # Ищем папку, в которой реально лежит gradlew после распаковки
-          GRADLE_PATH=$(find . -name gradlew)
+          # Находим точный путь к файлу gradlew
+          GRADLE_PATH=$(find . -name "gradlew" -type f | head -n 1)
+          if [ -z "$GRADLE_PATH" ]; then
+            echo "КРИТИЧЕСКАЯ ОШИБКА: Файл gradlew не найден ни в одной папке архива!"
+            exit 1
+          fi
           GRADLE_DIR=$(dirname "$GRADLE_PATH")
           echo "Проект обнаружен в директории: $GRADLE_DIR"
           cd "$GRADLE_DIR"
