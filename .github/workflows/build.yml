@@ -10,27 +10,57 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-      - name: Unzip project
+      - name: Create Gradle Project Structure
         run: |
-          unzip -o *.zip
-          echo "=== СПИСОК РАСПАКОВАННЫХ ФАЙЛОВ ==="
-          ls -la
-      - name: Build App
+          # 1. Создаем стандартную структуру Gradle-проекта с нуля
+          mkdir -p gradle/wrapper
+          
+          # Генерируем базовый settings.gradle.kts
+          echo "pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }" > settings.gradle.kts
+          echo "dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }" >> settings.gradle.kts
+          echo "rootProject.name = 'CRAssistant'" >> settings.gradle.kts
+          echo "include(':app')" >> settings.gradle.kts
+
+          # Генерируем корневой build.gradle.kts
+          echo "plugins { id('com.android.application') version '8.2.0' apply false; id('org.jetbrains.kotlin.android') version '1.9.0' apply false }" > build.gradle.kts
+
+          # Генерируем build.gradle.kts для модуля app
+          mkdir -p app
+          echo "plugins { id('com.android.application'); id('org.jetbrains.kotlin.android') }" > app/build.gradle.kts
+          echo "android { compileSdk = 34; defaultConfig { applicationId = 'com.cra.assistant'; minSdk = 24; targetSdk = 34; versionCode = 1; versionName = '1.0' }; buildTypes { release { isMinifyEnabled = false } } }" >> app/build.gradle.kts
+
+          # 2. Скачиваем официальный Gradle-обертку (wrapper), чтобы появился файл gradlew
+          wget https://gradle.org
+          unzip -o gradle-8.2-bin.zip
+          mv gradle-8.2/bin/gradle .
+          ./gradle wrapper --gradle-version 8.2
+          chmod +x gradlew
+
+      - name: Unzip and Merge User Source Code
         run: |
-          # Находим точный путь к файлу gradlew
-          GRADLE_PATH=$(find . -name "gradlew" -type f | head -n 1)
-          if [ -z "$GRADLE_PATH" ]; then
-            echo "КРИТИЧЕСКАЯ ОШИБКА: Файл gradlew не найден ни в одной папке архива!"
+          # 3. Распаковываем ваш ZIP-архив во временную папку
+          mkdir -p temp_user_code
+          unzip -o *.zip -d temp_user_code
+          
+          # Ищем, где внутри архива лежит папка main (содержащая java/com/cra/assistant)
+          USER_MAIN_DIR=$(find temp_user_code -name "main" -type d | head -n 1)
+          
+          if [ -z "$USER_MAIN_DIR" ]; then
+            echo "Ошибка: в архиве не найдена папка src/main/ с кодом!"
             exit 1
           fi
-          GRADLE_DIR=$(dirname "$GRADLE_PATH")
-          echo "Проект обнаружен в директории: $GRADLE_DIR"
-          cd "$GRADLE_DIR"
-          chmod +x gradlew
-          ./gradlew assembleDebug
+          
+          # Переносим ваши файлы в структуру нашего сгенерированного проекта
+          mkdir -p app/src
+          cp -r "$USER_MAIN_DIR" app/src/
+          echo "=== Исходный код успешно внедрен ==="
+
+      - name: Build with Gradle
+        run: ./gradlew :app:assembleDebug
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: app-debug
-          path: "**/build/outputs/apk/debug/*.apk"
+          path: app/build/outputs/apk/debug/*.apk
           
